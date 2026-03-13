@@ -285,14 +285,6 @@ bundles.push({
   },
 });
 
-// @playwright/client
-bundles.push({
-  modulePath: 'packages/playwright-client',
-  outdir: 'packages/playwright-client/lib',
-  entryPoints: ['src/index.ts'],
-  minify: false,
-});
-
 class GroupStep extends Step {
   /** @param {Step[]} steps */
   constructor(steps) {
@@ -312,19 +304,10 @@ class GroupStep extends Step {
 /** @type {Step[]} */
 const updateSteps = [];
 
-// Update test runner.
-updateSteps.push(new ProgramStep({
-  command: 'npm',
-  args: ['ci', '--save=false', '--fund=false', '--audit=false'],
-  shell: true,
-  cwd: path.join(__dirname, '..', '..', 'tests', 'playwright-test', 'stable-test-runner'),
-  concurrent: true,
-}));
-
 // Update bundles.
 for (const bundle of bundles) {
-  // Do not update @playwright/client, it has not its own deps.
-  if (bundle.modulePath === 'packages/playwright-client')
+  // Do not update removed bundles.
+  if (!fs.existsSync(path.join(filePath(bundle.modulePath), 'package.json')))
     continue;
 
   const packageJson = path.join(filePath(bundle.modulePath), 'package.json');
@@ -340,20 +323,6 @@ for (const bundle of bundles) {
 }
 
 steps.push(new GroupStep(updateSteps));
-
-// Generate third party licenses for bundles.
-steps.push(new ProgramStep({
-  command: 'node',
-  args: [path.resolve(__dirname, '../generate_third_party_notice.js')],
-  shell: true,
-}));
-
-// Build injected icons.
-steps.push(new ProgramStep({
-  command: 'node',
-  args: ['utils/generate_clip_paths.js'],
-  shell: true,
-}));
 
 // Build injected scripts.
 steps.push(new ProgramStep({
@@ -436,9 +405,6 @@ class CustomCallbackStep extends Step {
 for (const pkg of workspace.packages()) {
   if (!fs.existsSync(path.join(pkg.path, 'src')))
     continue;
-  // playwright-client is built as a bundle.
-  if (['@playwright/client'].includes(pkg.name))
-    continue;
 
   steps.push(new EsbuildStep({
     entryPoints: [path.join(pkg.path, 'src/**/*.ts')],
@@ -518,57 +484,14 @@ for (const bundle of bundles) {
   steps.push(new EsbuildStep(options));
 }
 
-// Build/watch trace viewer service worker.
-steps.push(new ProgramStep({
-  command: 'npx',
-  args: [
-    'vite',
-    '--config',
-    'vite.sw.config.ts',
-    'build',
-    ...(watchMode ? ['--watch', '--minify=false'] : []),
-    ...(withSourceMaps ? ['--sourcemap=inline'] : []),
-  ],
-  shell: true,
-  cwd: path.join(__dirname, '..', '..', 'packages', 'trace-viewer'),
-  concurrent: true,
-}));
-
-// Build/watch web packages.
-for (const webPackage of ['html-reporter', 'recorder', 'trace-viewer', 'dashboard']) {
-  steps.push(new ProgramStep({
-    command: 'npx',
-    args: [
-      'vite',
-      'build',
-      ...(watchMode ? ['--watch', '--minify=false'] : []),
-      ...(withSourceMaps ? ['--sourcemap=inline'] : []),
-      '--clearScreen=false',
-    ],
-    shell: true,
-    cwd: path.join(__dirname, '..', '..', 'packages', webPackage),
-    concurrent: true,
-  }));
-}
-
-// Generate CLI help.
-onChanges.push({
-  inputs: [
-    'packages/playwright-core/src/tools/cli-daemon/commands.ts',
-    'packages/playwright-core/src/tools/cli-daemon/helpGenerator.ts',
-    'utils/generate_cli_help.js',
-  ],
-  script: 'utils/generate_cli_help.js',
-});
+// Web packages (trace-viewer, html-reporter, recorder, dashboard) removed from this fork.
 
 // Generate injected.
 onChanges.push({
   inputs: [
     'packages/injected/src/**',
     'packages/playwright-core/src/third_party/**',
-    'packages/playwright-ct-core/src/injected/**',
     'packages/playwright-core/src/utils/isomorphic/**',
-    'utils/generate_injected_builtins.js',
     'utils/generate_injected.js',
   ],
   script: 'utils/generate_injected.js',
@@ -580,24 +503,6 @@ onChanges.push({
     'packages/protocol/src/protocol.yml'
   ],
   script: 'utils/generate_channels.js',
-});
-
-// Generate types.
-onChanges.push({
-  inputs: [
-    'docs/src/api/',
-    'docs/src/test-api/',
-    'docs/src/test-reporter-api/',
-    'utils/generate_types/overrides.d.ts',
-    'utils/generate_types/overrides-test.d.ts',
-    'utils/generate_types/overrides-testReporter.d.ts',
-    'utils/generate_types/exported.json',
-    'packages/playwright-core/src/server/chromium/protocol.d.ts',
-  ],
-  mustExist: [
-    'packages/playwright-core/lib/server/deviceDescriptorsSource.json',
-  ],
-  script: 'utils/generate_types/index.js',
 });
 
 if (watchMode && !disableInstall) {

@@ -1,170 +1,136 @@
-# 🎭 Playwright
+# Playwright MCP — Parallel Instances
 
-[![npm version](https://img.shields.io/npm/v/playwright.svg)](https://www.npmjs.com/package/playwright) <!-- GEN:chromium-version-badge -->[![Chromium version](https://img.shields.io/badge/chromium-146.0.7680.31-blue.svg?logo=google-chrome)](https://www.chromium.org/Home)<!-- GEN:stop --> <!-- GEN:firefox-version-badge -->[![Firefox version](https://img.shields.io/badge/firefox-146.0.1-blue.svg?logo=firefoxbrowser)](https://www.mozilla.org/en-US/firefox/new/)<!-- GEN:stop --> <!-- GEN:webkit-version-badge -->[![WebKit version](https://img.shields.io/badge/webkit-26.0-blue.svg?logo=safari)](https://webkit.org/)<!-- GEN:stop --> [![Join Discord](https://img.shields.io/badge/join-discord-informational)](https://aka.ms/playwright/discord)
+A fork of [Microsoft Playwright](https://github.com/microsoft/playwright) MCP server that adds **parallel browser instance isolation**. Multiple AI agents (or sub-agents) can each operate their own isolated browser session through a single MCP server — no interference, no shared state.
 
-## [Documentation](https://playwright.dev) | [API reference](https://playwright.dev/docs/api/class-playwright)
+## What's Different
 
-Playwright is a framework for Web Testing and Automation. It allows testing [Chromium](https://www.chromium.org/Home)<sup>1</sup>, [Firefox](https://www.mozilla.org/en-US/firefox/new/) and [WebKit](https://webkit.org/) with a single API. Playwright is built to enable cross-browser web automation that is **ever-green**, **capable**, **reliable**, and **fast**.
+The upstream Playwright MCP server provides one shared browser context for all tool calls. This fork adds:
 
-|          | Linux | macOS | Windows |
-|   :---   | :---: | :---: | :---:   |
-| Chromium<sup>1</sup> <!-- GEN:chromium-version -->146.0.7680.31<!-- GEN:stop --> | :white_check_mark: | :white_check_mark: | :white_check_mark: |
-| WebKit <!-- GEN:webkit-version -->26.0<!-- GEN:stop --> | :white_check_mark: | :white_check_mark: | :white_check_mark: |
-| Firefox <!-- GEN:firefox-version -->146.0.1<!-- GEN:stop --> | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+- **`browser_instance_create`** — Spin up a new isolated browser instance (its own tabs, cookies, storage).
+- **`browser_instance_list`** — List all active instances with their tab counts and URLs.
+- **`browser_instance_close`** — Tear down an instance when done.
+- **`instanceId` parameter** — Every existing tool (`browser_navigate`, `browser_click`, etc.) accepts an optional `instanceId` to target a specific instance.
 
-Headless execution is supported for all browsers on all platforms. Check out [system requirements](https://playwright.dev/docs/intro#system-requirements) for details.
+When `instanceId` is omitted, tools operate on the **default instance** (backward-compatible with standard Playwright MCP).
 
-Looking for Playwright for [Python](https://playwright.dev/python/docs/intro), [.NET](https://playwright.dev/dotnet/docs/intro), or [Java](https://playwright.dev/java/docs/intro)?
+## Quick Start
 
-<sup>1</sup> Playwright uses [Chrome for Testing](https://developer.chrome.com/blog/chrome-for-testing) by default.
+### Prerequisites
 
-## Installation
+- Node.js ≥ 18
+- A Chromium/Chrome browser (installed automatically by Playwright if needed)
 
-Playwright has its own test runner for end-to-end tests, we call it Playwright Test.
+### Build from Source
 
-### Using init command
-
-The easiest way to get started with Playwright Test is to run the init command.
-
-```Shell
-# Run from your project's root directory
-npm init playwright@latest
-# Or create a new project
-npm init playwright@latest new-project
+```bash
+git clone https://github.com/nicekid1/playwright-mcp-paral.git
+cd playwright-mcp-paral
+npm install
+npm run build
 ```
 
-This will create a configuration file, optionally add examples, a GitHub Action workflow and a first test example.spec.ts. You can now jump directly to writing assertions section.
+### Install Browsers (first time only)
 
-### Manually
-
-Add dependency and install browsers.
-
-```Shell
-npm i -D @playwright/test
-# install supported browsers
-npx playwright install
+```bash
+npx playwright install chromium
 ```
 
-You can optionally install only selected browsers, see [install browsers](https://playwright.dev/docs/cli#install-browsers) for more details. Or you can install no browsers at all and use existing [browser channels](https://playwright.dev/docs/browsers).
+### Start the MCP Server
 
-* [Getting started](https://playwright.dev/docs/intro)
-* [API reference](https://playwright.dev/docs/api/class-playwright)
+**HTTP/SSE (for networked agents):**
 
-## Capabilities
-
-### Resilient • No flaky tests
-
-**Auto-wait**. Playwright waits for elements to be actionable prior to performing actions. It also has a rich set of introspection events. The combination of the two eliminates the need for artificial timeouts - a primary cause of flaky tests.
-
-**Web-first assertions**. Playwright assertions are created specifically for the dynamic web. Checks are automatically retried until the necessary conditions are met.
-
-**Tracing**. Configure test retry strategy, capture execution trace, videos and screenshots to eliminate flakes.
-
-### No trade-offs • No limits
-
-Browsers run web content belonging to different origins in different processes. Playwright is aligned with the architecture of the modern browsers and runs tests out-of-process. This makes Playwright free of the typical in-process test runner limitations.
-
-**Multiple everything**. Test scenarios that span multiple tabs, multiple origins and multiple users. Create scenarios with different contexts for different users and run them against your server, all in one test.
-
-**Trusted events**. Hover elements, interact with dynamic controls and produce trusted events. Playwright uses real browser input pipeline indistinguishable from the real user.
-
-Test frames, pierce Shadow DOM. Playwright selectors pierce shadow DOM and allow entering frames seamlessly.
-
-### Full isolation • Fast execution
-
-**Browser contexts**. Playwright creates a browser context for each test. Browser context is equivalent to a brand new browser profile. This delivers full test isolation with zero overhead. Creating a new browser context only takes a handful of milliseconds.
-
-**Log in once**. Save the authentication state of the context and reuse it in all the tests. This bypasses repetitive log-in operations in each test, yet delivers full isolation of independent tests.
-
-### Powerful Tooling
-
-**[Codegen](https://playwright.dev/docs/codegen)**. Generate tests by recording your actions. Save them into any language.
-
-**[Playwright inspector](https://playwright.dev/docs/inspector)**. Inspect page, generate selectors, step through the test execution, see click points and explore execution logs.
-
-**[Trace Viewer](https://playwright.dev/docs/trace-viewer)**. Capture all the information to investigate the test failure. Playwright trace contains test execution screencast, live DOM snapshots, action explorer, test source and many more.
-
-Looking for Playwright for [TypeScript](https://playwright.dev/docs/intro), [JavaScript](https://playwright.dev/docs/intro), [Python](https://playwright.dev/python/docs/intro), [.NET](https://playwright.dev/dotnet/docs/intro), or [Java](https://playwright.dev/java/docs/intro)?
-
-## Examples
-
-To learn how to run these Playwright Test examples, check out our [getting started docs](https://playwright.dev/docs/intro).
-
-#### Page screenshot
-
-This code snippet navigates to Playwright homepage and saves a screenshot.
-
-```TypeScript
-import { test } from '@playwright/test';
-
-test('Page Screenshot', async ({ page }) => {
-  await page.goto('https://playwright.dev/');
-  await page.screenshot({ path: `example.png` });
-});
+```bash
+node packages/playwright-core/lib/tools/mcp/cli-stub.js --isolated --port 3000
 ```
 
-#### Mobile and geolocation
+**Stdio (for local MCP clients like VS Code):**
 
-This snippet emulates Mobile Safari on a device at given geolocation, navigates to maps.google.com, performs the action and takes a screenshot.
-
-```TypeScript
-import { test, devices } from '@playwright/test';
-
-test.use({
-  ...devices['iPhone 13 Pro'],
-  locale: 'en-US',
-  geolocation: { longitude: 12.492507, latitude: 41.889938 },
-  permissions: ['geolocation'],
-})
-
-test('Mobile and geolocation', async ({ page }) => {
-  await page.goto('https://maps.google.com');
-  await page.getByText('Your location').click();
-  await page.waitForRequest(/.*preview\/pwa/);
-  await page.screenshot({ path: 'colosseum-iphone.png' });
-});
+```bash
+node packages/playwright-core/lib/tools/mcp/cli-stub.js --isolated
 ```
 
-#### Evaluate in browser context
+### npm start shortcut
 
-This code snippet navigates to example.com, and executes a script in the page context.
+```bash
+npm start
+# Equivalent to: node packages/playwright-core/lib/tools/mcp/cli-stub.js --isolated --port 3000
+```
 
-```TypeScript
-import { test } from '@playwright/test';
+## VS Code / Copilot Configuration
 
-test('Evaluate in browser context', async ({ page }) => {
-  await page.goto('https://www.example.com/');
-  const dimensions = await page.evaluate(() => {
-    return {
-      width: document.documentElement.clientWidth,
-      height: document.documentElement.clientHeight,
-      deviceScaleFactor: window.devicePixelRatio
+Add to your VS Code `settings.json` to use this as an MCP server for Copilot:
+
+```jsonc
+{
+  "mcp": {
+    "servers": {
+      "playwright": {
+        "command": "node",
+        "args": [
+          "C:/absolute/path/to/playwright-mcp-paral/packages/playwright-core/lib/tools/mcp/cli-stub.js",
+          "--isolated"
+        ]
+      }
     }
-  });
-  console.log(dimensions);
-});
+  }
+}
 ```
 
-#### Intercept network requests
+Replace the path with your actual clone location.
 
-This code snippet sets up request routing for a page to log all network requests.
+## Usage — Parallel Agents
 
-```TypeScript
-import { test } from '@playwright/test';
+Each sub-agent creates its own instance, uses it, then cleans up:
 
-test('Intercept network requests', async ({ page }) => {
-  // Log and continue all network requests
-  await page.route('**', route => {
-    console.log(route.request().url());
-    route.continue();
-  });
-  await page.goto('http://todomvc.com');
-});
+```
+Agent A                              Agent B
+───────                              ───────
+browser_instance_create              browser_instance_create
+  → instanceId: "agent-a"             → instanceId: "agent-b"
+
+browser_navigate                     browser_navigate
+  url: "https://site-a.com"           url: "https://site-b.com"
+  instanceId: "agent-a"               instanceId: "agent-b"
+
+browser_snapshot                     browser_click
+  instanceId: "agent-a"               element: "Submit"
+                                       instanceId: "agent-b"
+
+browser_instance_close               browser_instance_close
+  instanceId: "agent-a"               instanceId: "agent-b"
 ```
 
-## Resources
+Tools called **without** `instanceId` use the default instance (works exactly like upstream Playwright MCP).
 
-* [Documentation](https://playwright.dev)
-* [API reference](https://playwright.dev/docs/api/class-playwright/)
-* [Contribution guide](CONTRIBUTING.md)
-* [Changelog](https://github.com/microsoft/playwright/releases)
+## Instance Tools Reference
+
+| Tool | Description |
+|------|-------------|
+| `browser_instance_create` | Create a new isolated instance. Optional `instanceId` param (auto-generated if omitted). |
+| `browser_instance_list` | List all active instances with tab counts and URLs. |
+| `browser_instance_close` | Close an instance by ID. Cannot close the default instance. |
+
+All standard Playwright MCP tools (`browser_navigate`, `browser_click`, `browser_snapshot`, etc.) accept an optional `instanceId` string parameter to target a specific instance.
+
+## CLI Flags
+
+| Flag | Description |
+|------|-------------|
+| `--isolated` | Use isolated browser contexts (required for instance creation) |
+| `--port <n>` | Start HTTP/SSE server on given port (omit for stdio) |
+| `--browser <name>` | Browser to use: `chromium` (default), `firefox`, `webkit` |
+| `--headless` | Run in headless mode |
+| `--caps <list>` | Comma-separated capabilities: `core`, `tabs`, `pdf`, `history`, `wait`, `files`, `install`, `testing` |
+| `--config <path>` | Path to Playwright MCP config JSON file |
+
+## Development
+
+```bash
+npm run build                       # Full build
+npm run ctest-mcp                   # Run all MCP tests (Chromium)
+npm run ctest-mcp -- instance       # Run instance isolation tests only
+```
+
+## License
+
+Apache-2.0 — see [LICENSE](LICENSE).

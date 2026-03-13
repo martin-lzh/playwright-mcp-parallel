@@ -22,7 +22,9 @@ import { setupExitWatchdog } from './watchdog';
 import { createBrowser } from './browserFactory';
 import { BrowserBackend } from '../backend/browserBackend';
 import { filteredTools } from '../backend/tools';
+import { instanceToolSchemas } from '../backend/instance';
 import { testDebug } from './log';
+import { z } from '../../mcpBundle';
 
 import type { Command } from '../../utilsBundle';
 import type { ClientInfo } from '../utils/mcp/server';
@@ -93,16 +95,25 @@ export function decorateMCPCommand(command: Command) {
 
         const config = await resolveCLIConfig(options);
         const tools = filteredTools(config);
+        const extendedToolSchemas = tools.map(tool => ({
+          ...tool.schema,
+          inputSchema: tool.schema.inputSchema.extend({
+            instanceId: z.string().optional().describe('Instance ID for parallel execution. If omitted, uses the default instance. Create instances with browser_instance_create.'),
+          }),
+        }));
         if (config.extension) {
           const serverBackendFactory: mcpServer.ServerBackendFactory = {
             name: 'Playwright w/ extension',
             nameInConfig: 'playwright-extension',
             version,
-            toolSchemas: tools.map(tool => tool.schema),
+            toolSchemas: [...extendedToolSchemas, ...instanceToolSchemas],
             create: async (clientInfo: ClientInfo) => {
               const browser = await createBrowser(config, clientInfo);
               const browserContext = browser.contexts()[0];
-              return new BrowserBackend(config, browserContext, tools);
+              return new BrowserBackend(config, browserContext, tools, {
+                browser,
+                contextOptions: config.browser.contextOptions,
+              });
             },
             disposed: async () => { }
           };
@@ -118,14 +129,17 @@ export function decorateMCPCommand(command: Command) {
           name: 'Playwright',
           nameInConfig: 'playwright',
           version,
-          toolSchemas: tools.map(tool => tool.schema),
+          toolSchemas: [...extendedToolSchemas, ...instanceToolSchemas],
           create: async (clientInfo: ClientInfo) => {
             if (useSharedBrowser && clientCount === 0)
               sharedBrowser = await createBrowser(config, clientInfo);
             clientCount++;
             const browser = sharedBrowser || await createBrowser(config, clientInfo);
             const browserContext = config.browser.isolated ? await browser.newContext(config.browser.contextOptions) : browser.contexts()[0];
-            return new BrowserBackend(config, browserContext, tools);
+            return new BrowserBackend(config, browserContext, tools, {
+              browser,
+              contextOptions: config.browser.contextOptions,
+            });
           },
           disposed: async backend => {
             clientCount--;

@@ -1,5 +1,6 @@
 {
     "compilerOptions": {
+        "ignoreDeprecations": "6.0",
         "allowJs": true,
         "checkJs": false,
         "noEmit": true,
@@ -11,15 +12,13 @@
         "useUnknownInCatchVariables": false,
         "baseUrl": "..",
         "paths": {
-          "@dvtools/*": ["packages/devtools/src/*"],
           "@isomorphic/*": ["packages/playwright-core/src/utils/isomorphic/*"],
           "@testIsomorphic/*": ["packages/playwright/src/isomorphic/*"],
           "@protocol/*": ["packages/protocol/src/*"],
-          "@recorder/*": ["packages/recorder/src/*"],
           "@trace/*": ["packages/trace/src/*"],
           "@web/*": ["packages/web/src/*"],
         },
     },
     "include": ["**/*.spec.js", "**/*.ts"],
-    "exclude": ["components/", "installation/fixture-scripts/"]
+    "exclude": ["components/", "installation/", "config/browserTest.ts", "config/ghaMarkdownReporter.ts"]
 }

@@ -18,9 +18,11 @@ import { resolveConfig } from './config';
 import { filteredTools } from '../backend/tools';
 import { createBrowser } from './browserFactory';
 import { BrowserBackend } from '../backend/browserBackend';
+import { instanceToolSchemas } from '../backend/instance';
 import { createServer } from '../utils/mcp/server';
+import { z } from '../../mcpBundle';
 
-import type { BrowserContext } from 'playwright';
+import type { Browser, BrowserContext } from 'playwright';
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import type { ClientInfo, ServerBackendFactory } from '../utils/mcp/server';
 import type { Config } from './config.d';
@@ -30,33 +32,35 @@ const packageJSON = require('../../../package.json');
 export async function createConnection(userConfig: Config = {}, contextGetter?: () => Promise<BrowserContext>): Promise<Server> {
   const config = await resolveConfig(userConfig);
   const tools = filteredTools(config);
+
+  // Add optional instanceId parameter to all tool schemas for parallel execution.
+  const extendedToolSchemas = tools.map(tool => ({
+    ...tool.schema,
+    inputSchema: tool.schema.inputSchema.extend({
+      instanceId: z.string().optional().describe('Instance ID for parallel execution. If omitted, uses the default instance. Create instances with browser_instance_create.'),
+    }),
+  }));
+
   const backendFactory: ServerBackendFactory = {
     name: 'api',
     nameInConfig: 'api',
     version: packageJSON.version,
-    toolSchemas: tools.map(tool => tool.schema),
+    toolSchemas: [...extendedToolSchemas, ...instanceToolSchemas],
     create: async (clientInfo: ClientInfo) => {
-      const browser = contextGetter ? new SimpleBrowser(await contextGetter()) : await createBrowser(config, clientInfo);
-      const context = config.browser.isolated ? await browser.newContext(config.browser.contextOptions) : browser.contexts()[0];
-      return new BrowserBackend(config, context, tools);
+      let browser: Browser | undefined;
+      let context: BrowserContext;
+      if (contextGetter) {
+        context = await contextGetter();
+      } else {
+        browser = await createBrowser(config, clientInfo);
+        context = config.browser.isolated ? await browser.newContext(config.browser.contextOptions) : browser.contexts()[0];
+      }
+      return new BrowserBackend(config, context, tools, {
+        browser,
+        contextOptions: config.browser.contextOptions,
+      });
     },
     disposed: async () => { }
   };
   return createServer('api', packageJSON.version, backendFactory, false);
-}
-
-class SimpleBrowser {
-  private _context: BrowserContext;
-
-  constructor(context: BrowserContext) {
-    this._context = context;
-  }
-
-  contexts(): BrowserContext[] {
-    return [this._context];
-  }
-
-  async newContext(): Promise<BrowserContext> {
-    throw new Error('Creating a new context is not supported in SimpleBrowserContextFactory.');
-  }
 }
