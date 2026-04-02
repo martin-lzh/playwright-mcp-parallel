@@ -213,12 +213,16 @@ test('list --all lists sessions from all workspaces', async ({ cli, server }, te
   await cli('-s', 'session1', 'close', { cwd: workspace1 });
 
   const { output: listTwo } = await cli('list', '--all', { cwd: workspace2 });
-  expect(listTwo).not.toContain('workspace1');
-  expect(listTwo).not.toContain('session1');
-  expect(listTwo).toContain('/:');
-  expect(listTwo).toContain('session2');
-  expect(listTwo).toContain('workspace3');
-  expect(listTwo).toContain('session3');
+  // Check only the Browsers section — on Windows the browser server process
+  // may still be alive briefly after close, causing workspace1 to appear in
+  // the "Browser servers available for attach" section.
+  const browsersSectionTwo = listTwo.split('### Browser servers')[0];
+  expect(browsersSectionTwo).not.toContain('workspace1');
+  expect(browsersSectionTwo).not.toContain('session1');
+  expect(browsersSectionTwo).toContain('/:');
+  expect(browsersSectionTwo).toContain('session2');
+  expect(browsersSectionTwo).toContain('workspace3');
+  expect(browsersSectionTwo).toContain('session3');
 
   const sessionFilesAfterClose = await getSessionFiles();
   expect(sessionFilesAfterClose).not.toContain('session1.session');
@@ -228,12 +232,13 @@ test('list --all lists sessions from all workspaces', async ({ cli, server }, te
   killProcessGroup(session3.pid);
 
   const { output: listOne } = await cli('list', '--all', { cwd: workspace2 });
-  expect(listOne).not.toContain('workspace1');
-  expect(listOne).not.toContain('session1');
-  expect(listOne).toContain('/:');
-  expect(listOne).toContain('session2');
-  expect(listOne).not.toContain('workspace3');
-  expect(listOne).not.toContain('session3');
+  const browsersSectionOne = listOne.split('### Browser servers')[0];
+  expect(browsersSectionOne).not.toContain('workspace1');
+  expect(browsersSectionOne).not.toContain('session1');
+  expect(browsersSectionOne).toContain('/:');
+  expect(browsersSectionOne).toContain('session2');
+  expect(browsersSectionOne).not.toContain('workspace3');
+  expect(browsersSectionOne).not.toContain('session3');
 
   const sessionFilesAfterList = await getSessionFiles();
   expect(sessionFilesAfterList).not.toContain('session1.session');
