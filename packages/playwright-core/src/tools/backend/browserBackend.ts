@@ -189,17 +189,47 @@ export class BrowserBackend implements ServerBackend {
     const response = new Response(context, name, parsedArguments, cwd);
     context.setRunningTool(name);
     let responseObject: mcpServer.CallToolResult & { isClose?: boolean };
+    let toolError: Error | undefined;
     try {
       await tool.handle(context, parsedArguments, response);
-      responseObject = await response.serialize();
-      this._sessionLog?.logResponse(name, parsedArguments, responseObject);
     } catch (error: any) {
-      return {
-        content: [{ type: 'text' as const, text: `### Error\n${String(error)}` }],
-        isError: true,
-      };
-    } finally {
-      context.setRunningTool(undefined);
+      toolError = error;
+      response.addError(String(error));
+    }
+
+    const errorFallback = (error: Error | undefined) => ({
+      content: [{ type: 'text' as const, text: `### Error\n${String(error)}` }],
+      isError: true,
+    });
+
+    if (toolError) {
+      // tool.handle() threw — try to serialize the partial response (to
+      // preserve code/page data already queued) but race against a short
+      // timeout: the page may be stuck (e.g. navigation timeout) and
+      // captureSnapshot / headerSnapshot would hang indefinitely.
+      try {
+        const raced = await Promise.race([
+          response.serialize(),
+          new Promise<'timeout'>(resolve => setTimeout(() => resolve('timeout'), 5000)),
+        ]);
+        if (raced === 'timeout')
+          return errorFallback(toolError);
+        responseObject = raced;
+        this._sessionLog?.logResponse(name, parsedArguments, responseObject);
+      } catch {
+        return errorFallback(toolError);
+      } finally {
+        context.setRunningTool(undefined);
+      }
+    } else {
+      try {
+        responseObject = await response.serialize();
+        this._sessionLog?.logResponse(name, parsedArguments, responseObject);
+      } catch (error: any) {
+        return errorFallback(error);
+      } finally {
+        context.setRunningTool(undefined);
+      }
     }
 
     // When a non-default instance signals close (e.g. browser_close or all tabs
