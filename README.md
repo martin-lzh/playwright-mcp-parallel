@@ -1,24 +1,32 @@
-# Playwright MCP — Parallel Instances
+# Playwright MCP — Parallel Instances (Unofficial Fork)
 
-A fork of [Microsoft Playwright](https://github.com/microsoft/playwright) MCP server that adds **parallel browser instance isolation**. Multiple AI agents (or sub-agents) can each operate their own isolated browser session through a single MCP server — no interference, no shared state.
+> **Disclaimer:** This is an **unofficial, modified fork** of [Microsoft Playwright](https://github.com/microsoft/playwright). It is not affiliated with, endorsed by, or maintained by Microsoft. Use at your own risk.
 
-## What's Different
+## Why This Fork Exists
 
-The upstream Playwright MCP server provides one shared browser context for all tool calls. This fork adds:
+The official Playwright MCP server runs a single shared browser context — all tool calls share one set of tabs, cookies, and state. This makes it impossible for multiple AI agents (or sub-agents) to browse the web in parallel without stepping on each other.
 
-- **`browser_instance_create`** — Spin up a new isolated browser instance (its own tabs, cookies, storage).
-- **`browser_instance_list`** — List all active instances with their tab counts and URLs.
-- **`browser_instance_close`** — Tear down an instance when done.
-- **`instanceId` parameter** — Every existing tool (`browser_navigate`, `browser_click`, etc.) accepts an optional `instanceId` to target a specific instance.
+This fork is a **workaround** that adds browser instance isolation so each agent gets its own independent session through the same MCP server. It's a pragmatic hack, not a polished product — if/when upstream Playwright adds native parallel support, this repo becomes obsolete.
 
-When `instanceId` is omitted, tools operate on the **default instance** (backward-compatible with standard Playwright MCP).
+## What's Changed
+
+Three new tools and one new parameter on all existing tools:
+
+| Addition | What it does |
+|----------|-------------|
+| `browser_instance_create` | Spin up a new isolated browser instance (own tabs, cookies, storage) |
+| `browser_instance_list` | List active instances with tab counts and current URLs |
+| `browser_instance_close` | Tear down an instance by ID |
+| `instanceId` param | Added to every standard tool — targets a specific instance |
+
+When `instanceId` is omitted, tools operate on the **default instance** (fully backward-compatible with standard Playwright MCP).
 
 ## Quick Start
 
 ### Prerequisites
 
 - Node.js ≥ 18
-- A Chromium/Chrome browser (installed automatically by Playwright if needed)
+- Chromium/Chrome (auto-installed by Playwright if needed)
 
 ### Build from Source
 
@@ -49,16 +57,16 @@ node packages/playwright-core/lib/tools/mcp/cli-stub.js --isolated --port 3000
 node packages/playwright-core/lib/tools/mcp/cli-stub.js --isolated
 ```
 
-### npm start shortcut
+**Shortcut:**
 
 ```bash
 npm start
-# Equivalent to: node packages/playwright-core/lib/tools/mcp/cli-stub.js --isolated --port 3000
+# → node packages/playwright-core/lib/tools/mcp/cli-stub.js --isolated --port 3000
 ```
 
 ## VS Code / Copilot Configuration
 
-Add to your VS Code `settings.json` to use this as an MCP server for Copilot:
+Add to your VS Code `settings.json`:
 
 ```jsonc
 {
@@ -80,7 +88,7 @@ Replace the path with your actual clone location.
 
 ## Usage — Parallel Agents
 
-Each sub-agent creates its own instance, uses it, then cleans up:
+Each agent creates its own instance, uses it, then cleans up:
 
 ```
 Agent A                              Agent B
@@ -100,37 +108,31 @@ browser_instance_close               browser_instance_close
   instanceId: "agent-a"               instanceId: "agent-b"
 ```
 
-Tools called **without** `instanceId` use the default instance (works exactly like upstream Playwright MCP).
-
-## Instance Tools Reference
-
-| Tool | Description |
-|------|-------------|
-| `browser_instance_create` | Create a new isolated instance. Optional `instanceId` param (auto-generated if omitted). |
-| `browser_instance_list` | List all active instances with tab counts and URLs. |
-| `browser_instance_close` | Close an instance by ID. Cannot close the default instance. |
-
-All standard Playwright MCP tools (`browser_navigate`, `browser_click`, `browser_snapshot`, etc.) accept an optional `instanceId` string parameter to target a specific instance.
+Tools called **without** `instanceId` hit the default instance — works exactly like upstream.
 
 ## CLI Flags
 
 | Flag | Description |
 |------|-------------|
-| `--isolated` | Use isolated browser contexts (required for instance creation) |
-| `--port <n>` | Start HTTP/SSE server on given port (omit for stdio) |
-| `--browser <name>` | Browser to use: `chromium` (default), `firefox`, `webkit` |
-| `--headless` | Run in headless mode |
-| `--caps <list>` | Comma-separated capabilities: `core`, `tabs`, `pdf`, `history`, `wait`, `files`, `install`, `testing` |
-| `--config <path>` | Path to Playwright MCP config JSON file |
+| `--isolated` | Isolated browser contexts (required for instance support) |
+| `--port <n>` | HTTP/SSE server on given port (omit for stdio) |
+| `--browser <name>` | `chromium` (default), `firefox`, `webkit` |
+| `--headless` | Headless mode |
+| `--caps <list>` | Comma-separated: `core`, `tabs`, `pdf`, `history`, `wait`, `files`, `install`, `testing` |
+| `--config <path>` | Path to config JSON |
 
 ## Development
 
 ```bash
 npm run build                       # Full build
 npm run ctest-mcp                   # Run all MCP tests (Chromium)
-npm run ctest-mcp -- instance       # Run instance isolation tests only
+npm run ctest-mcp -- instance       # Instance isolation tests only
 ```
 
-## License
+## License & Attribution
 
-Apache-2.0 — see [LICENSE](LICENSE).
+This project is a modified fork of [Microsoft Playwright](https://github.com/microsoft/playwright), which is licensed under the **Apache License 2.0**.
+
+The original copyright and license terms are preserved in full — see [LICENSE](LICENSE). Per the Apache 2.0 license terms, this fork constitutes a derivative work. The modifications add browser instance isolation to the MCP server; all original Playwright functionality remains intact and is the work of Microsoft and the Playwright contributors.
+
+**This project is not an official Microsoft product.**
