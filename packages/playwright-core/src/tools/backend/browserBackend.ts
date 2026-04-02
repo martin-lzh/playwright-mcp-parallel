@@ -72,7 +72,7 @@ export class BrowserBackend implements ServerBackend {
   }
 
   async dispose() {
-    for (const [id, entry] of this._instances) {
+    for (const [, entry] of this._instances) {
       await entry.context.dispose().catch(e => debug('pw:tools:error')(e));
       if (!entry.isDefault)
         await entry.browserContext.close().catch(e => debug('pw:tools:error')(e));

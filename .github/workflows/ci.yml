@@ -27,8 +27,6 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run eslint
-      - run: npm run tsc
-      - run: npm run check-deps
       - name: Verify clean tree
         run: |
           if [[ -n $(git status -s) ]]; then

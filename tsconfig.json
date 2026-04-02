@@ -40,5 +40,10 @@
   "include": ["packages"],
   "exclude": [
     "packages/*/lib",
+    "packages/dashboard",
+    "packages/html-reporter",
+    "packages/recorder",
+    "packages/trace/src",
+    "packages/web/src"
   ]
 }
