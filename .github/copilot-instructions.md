@@ -1,92 +1,100 @@
-# Playwright Monorepo — Copilot Instructions
+# Playwright MCP Parallel — Copilot Instructions
 
-This is the **Microsoft Playwright** monorepo: a browser automation framework consisting of a TypeScript/Node.js library, a test runner, MCP tools, and browser distributions for Chromium, Firefox, and WebKit.
+Unofficial fork of [Microsoft Playwright](https://github.com/microsoft/playwright) that adds **browser instance isolation** to the MCP server. Each agent gets its own independent session (tabs, cookies, storage) through a single MCP server. See [README.md](../README.md) for usage and motivation.
 
-## Key Architecture
+## What This Fork Changes
 
-Playwright uses a **client → protocol → server** layered architecture, strictly enforced by the DEPS system.
+Three instance management tools + an `instanceId` parameter injected into all existing tools:
+
+| Tool / Param | Purpose |
+|--------------|---------|
+| `browser_instance_create` | Spin up a new isolated browser instance |
+| `browser_instance_list` | List active instances with tab counts |
+| `browser_instance_close` | Tear down an instance by ID |
+| `instanceId` (on all tools) | Target a specific instance (defaults to `'default'`) |
+
+## Instance Architecture
+
+```
+BrowserBackend (orchestrator)
+├── _instances: Map<string, InstanceEntry>
+│   ├── 'default' → { context, browserContext, isDefault: true }
+│   ├── 'agent-a' → { context, browserContext, isDefault: false }
+│   └── 'agent-b' → { context, browserContext, isDefault: false }
+└── callTool(name, args) → extract instanceId → _resolveContext → execute
+```
+
+Key files for the instance feature:
+
+| File | Role |
+|------|------|
+| `packages/playwright-core/src/tools/backend/browserBackend.ts` | Instance manager, tool router |
+| `packages/playwright-core/src/tools/backend/context.ts` | MCP Context class (wraps BrowserContext) |
+| `packages/playwright-core/src/tools/backend/instance.ts` | Instance tool schemas (create/list/close) |
+| `packages/playwright-core/src/tools/backend/tool.ts` | `defineTool()` / `defineTabTool()` helpers |
+| `packages/playwright-core/src/tools/mcp/index.ts` | Injects `instanceId` param into all tools |
+| `tests/mcp/instance.spec.ts` | Instance isolation tests |
+
+## Upstream Architecture (preserved)
+
+Playwright uses a **client → protocol → server** layered architecture, enforced by DEPS.list files.
 
 | Layer | Location | Role |
 |-------|----------|------|
-| Client (public API) | `packages/playwright-core/src/client/` | `ChannelOwner` subclasses; what users import |
-| Protocol (RPC) | `packages/protocol/src/protocol.yml` → generated `channels.d.ts` | Source of truth for all RPC interfaces |
-| Server (browser automation) | `packages/playwright-core/src/server/` | `SdkObject` subclasses; performs actual automation |
-| Dispatchers (bridge) | `packages/playwright-core/src/server/dispatchers/` | Connects server objects to the protocol wire |
+| Client (public API) | `packages/playwright-core/src/client/` | `ChannelOwner` subclasses |
+| Protocol (RPC) | `packages/protocol/src/protocol.yml` | Source of truth for RPC interfaces |
+| Server | `packages/playwright-core/src/server/` | `SdkObject` subclasses; actual automation |
+| Dispatchers | `packages/playwright-core/src/server/dispatchers/` | Bridge server objects to wire protocol |
 
-**Critical rule: client code NEVER imports server code and vice versa.** They communicate only through the protocol layer.
+**Client code NEVER imports server code and vice versa.** They communicate only through the protocol layer.
 
-## DEPS System (import boundaries)
+### DEPS System
 
-`DEPS.list` files (52+ across the repo) declare allowed imports, enforced by `npm run flint`.
+`DEPS.list` files (~46 across the repo) declare allowed imports, enforced by `npm run check-deps`.
 
 - When you create or move a file, update the relevant `DEPS.list`.
-- Files marked `"strict"` can ONLY import what is explicitly listed.
-- Violations are caught by `npm run flint` (not by tsc alone).
+- Files in `[*]` sections get default imports; named sections like `[file.ts]` restrict specific files.
 
-## Build
+## Build & Run
 
 ```bash
-npm run build       # Full build
-npm run watch       # Watch mode — assume this is running during development
+npm run build          # Full build (generates channels.d.ts, types, bundles)
+npm run watch          # Watch mode — assume this is running during development
+npm start              # Start MCP server: --isolated --port 3000
 ```
 
-Generated files (`channels.d.ts`, `validator.ts`, type definitions) are produced automatically by watch. Do not edit them by hand.
+Generated files are produced by the build/watch. Do not edit them by hand.
 
 ## Lint
 
 ```bash
-npm run flint
+npm run eslint         # ESLint (cached)
+npm run tsc            # TypeScript compilation check
+npm run check-deps     # Validate DEPS.list import boundaries
 ```
 
-Runs all checks in parallel: eslint, tsc, doclint, check-deps, generate_channels, generate_types, lint-tests, test-types, lint-packages, code-snippet linting.
-
-**Always run `flint` before committing.** Do NOT use `tsc --noEmit` or individual lint commands.
+Run all three before committing.
 
 ## Test Commands
 
 | Command | Scope |
 |---------|-------|
-| `npm run ctest <filter>` | Chromium library tests — **use this during development** |
-| `npm run ttest <filter>` | Test runner tests (`tests/playwright-test/`) |
-| `npm run ctest-mcp <filter>` | Chromium MCP tool tests (`tests/mcp/`) |
-| `npm run test <filter> -- --project=<chromium\|firefox\|webkit>` | Cross-browser library |
-| `npm run test-mcp <filter> -- --project=<chromium\|firefox\|webkit>` | Cross-browser MCP |
+| `npm run ctest-mcp <filter>` | Chromium MCP tests — **use this during development** |
+| `npm run test-mcp <filter>` | All MCP tests (chromium + firefox + webkit) |
+
+All tests live in `tests/mcp/`. Import pattern: `import { test, expect } from './fixtures'`.
 
 ### Filtering
 
 ```bash
-npm run ctest tests/page/locator-click.spec.ts    # Specific file
-npm run ctest tests/page/locator-click.spec.ts:12 # Specific line
-npm run ctest -- --grep "should click"            # By test name
-npm run ctest-mcp snapshot                        # By file name part
+npm run ctest-mcp instance                        # By file name part
+npm run ctest-mcp tests/mcp/instance.spec.ts      # Specific file
+npm run ctest-mcp -- --grep "should create"       # By test name
 ```
-
-### Choosing the Right Test Directory
-
-| Directory | Import | Key Fixtures | Use When |
-|-----------|--------|--------------|----------|
-| `tests/page/` | `import { test, expect } from './pageTest'` | `page`, `server`, `browserName` | User interactions: click, fill, navigate, locators |
-| `tests/library/` | `import { browserTest, expect } from '../config/browserTest'` | `browser`, `context`, `browserType` | Browser/context lifecycle, cookies, permissions |
-| `tests/playwright-test/` | `import { test, expect } from './playwright-test-fixtures'` | test runner fixtures | Test runner behavior: reporters, config, annotations |
-| `tests/mcp/` | `import { test, expect } from './fixtures'` | `client`, `server` | MCP tools via `client.callTool()` |
-
-**Decision rule:** Needs `browser`/`context`/`browserType`? → `tests/library/`. Just needs `page` + `server`? → `tests/page/`.
-
-## Adding or Modifying APIs (docs-first workflow)
-
-1. **Define in docs** — `docs/src/api/class-xxx.md` is the source of truth for public TypeScript types. Watch auto-generates types from it.
-2. **Implement client** — `packages/playwright-core/src/client/xxx.ts` (extends `ChannelOwner`).
-3. **Define protocol** — add command/event to `packages/protocol/src/protocol.yml`.
-4. **Add validator** — watch auto-generates `validator.ts`; add manual primitives only if needed.
-5. **Implement server** — `packages/playwright-core/src/server/xxx.ts` (extends `SdkObject`).
-6. **Add dispatcher** — `packages/playwright-core/src/server/dispatchers/xxxDispatcher.ts` (extends `Dispatcher`).
-7. **Write tests** — choose the right test directory above.
-
-Keep methods, events, and properties sorted alphabetically within doc files.
 
 ## Adding MCP Tools
 
-Create `packages/playwright-core/src/tools/backend/<your-tool>.ts`.
+Create `packages/playwright-core/src/tools/backend/<your-tool>.ts`:
 
 ```typescript
 import { z } from '../../mcpBundle';
@@ -110,7 +118,10 @@ const myTool = defineTabTool({
 export default [myTool];
 ```
 
-Use `defineTabTool` for most tools (auto-handles modal state). Use `defineTool` when you need full `Context` access.
+- Use `defineTabTool` for most tools (auto-handles modal state).
+- Use `defineTool` when you need full `Context` access.
+- The `instanceId` param is injected automatically by `mcp/index.ts` — don't add it to individual tools.
+- Register new tools in `packages/playwright-core/src/tools/backend/tools.ts`.
 
 ## Commit Convention
 
@@ -118,38 +129,26 @@ Use `defineTabTool` for most tools (auto-handles modal state). Use `defineTool` 
 label(scope): description
 ```
 
-Labels: `fix`, `feat`, `chore`, `docs`, `test`, `devops`
-
-Branch naming for issue fixes: `fix-<issue-number>`
-
-Never add `Co-Authored-By` agent lines to commit messages.
+Labels: `fix`, `feat`, `chore`, `docs`, `test`, `devops`. Branch naming: `fix-<issue-number>`.
 
 ## Key Pitfalls
 
-- **Never import across the client/server boundary** — caught by `DEPS.list` + `flint`.
-- **Never edit generated files** — edit the source (`protocol.yml`, doc `.md` files) and let watch regenerate.
-- **`docs/src/api/` is the source of truth** for public TypeScript types — define types there first.
-- **Always run `npm run flint`** before committing, not just `tsc`.
+- **Never import across the client/server boundary** — enforced by `DEPS.list` + `check-deps`.
+- **Never edit generated files** — edit sources (`protocol.yml`, doc `.md` files) and rebuild.
 - **Update `DEPS.list`** whenever you create, move, or rename a source file.
-- Version numbers in docs use the package.json version without the `-next` suffix.
+- **Default instance can't be closed** — `browser_instance_close` rejects attempts on the default.
+- **`instanceId` is injected globally** — don't add it to individual tool schemas.
 
-## Monorepo Package Overview
+## Package Overview
 
 | Package | Purpose |
 |---------|---------|
-| `playwright-core` | Browser automation engine: client, server, dispatchers, protocol |
-| `playwright` | Test runner + browser automation (public package) |
+| `playwright-core` | Browser automation engine + MCP tools/server |
+| `playwright` | Test runner + browser automation |
 | `playwright-test` | Test runner entry point |
-| `playwright-client` | Standalone client package |
 | `protocol` | RPC protocol definitions |
 | `html-reporter` | HTML test report viewer |
-| `trace-viewer` | Trace viewer UI |
-| `injected` | Scripts injected into browser pages |
 | `recorder` | Test recorder |
-
-## Detailed Skills (read when needed)
-
-- `.claude/skills/playwright-dev/library.md` — client/server/dispatcher architecture, ChannelOwner/SdkObject/Dispatcher, DEPS rules, RPC flow
-- `.claude/skills/playwright-dev/api.md` — full 6-step API development process with code patterns
-- `.claude/skills/playwright-dev/tools.md` — MCP tools, CLI commands, `defineTool`/`defineTabTool`, config options, testing
-- `.claude/skills/playwright-dev/vendor.md` — vendoring third-party npm packages into bundles
+| `injected` | Scripts injected into browser pages |
+| `trace` | Trace viewer |
+| `dashboard` | MCP dashboard UI |
