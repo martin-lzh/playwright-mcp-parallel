@@ -95,6 +95,9 @@ export async function startCliDaemonServer(
         if (method === 'stop') {
           daemonDebug('stop command received, shutting down');
           await deleteSessionFile(clientInfo, sessionConfig);
+          // Close the server to release the socket binding before acking.
+          // This prevents EADDRINUSE when the client immediately starts a new daemon.
+          server.close();
           const sendAck = async () => connection.send({ id, result: 'ok' }).catch(() => {});
           if (options?.exitOnClose)
             gracefullyProcessExitDoNotHang(0, () => sendAck());
@@ -124,13 +127,31 @@ export async function startCliDaemonServer(
       gracefullyProcessExitDoNotHang(0);
   }));
 
-  await new Promise<void>((resolve, reject) => {
-    server.on('error', (error: NodeJS.ErrnoException) => {
-      daemonDebug(`server error: ${error.message}`);
-      reject(error);
-    });
-    server.listen(socketPath, () => resolve());
-  });
+  // Retry server.listen() to handle races where the previous daemon's socket
+  // has not been fully released yet (e.g. after a stop + immediate reopen).
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await new Promise<void>((resolve, reject) => {
+        server.once('error', (error: NodeJS.ErrnoException) => {
+          daemonDebug(`server error: ${error.message}`);
+          reject(error);
+        });
+        server.listen(socketPath, () => {
+          server.removeAllListeners('error');
+          resolve();
+        });
+      });
+      break;
+    } catch (error: any) {
+      if (error.code === 'EADDRINUSE' && attempt < 9) {
+        daemonDebug(`EADDRINUSE on attempt ${attempt + 1}, retrying...`);
+        await fs.promises.unlink(socketPath).catch(() => {});
+        await new Promise(r => setTimeout(r, 100));
+        continue;
+      }
+      throw error;
+    }
+  }
 
   await saveSessionFile(clientInfo, sessionConfig);
   return socketPath;

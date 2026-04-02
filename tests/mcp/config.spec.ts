@@ -87,6 +87,13 @@ test('executable path', async ({ startClient, server }, testInfo) => {
 test.describe(() => {
   test.use({ mcpBrowser: '' });
   test('browserName', { annotation: { type: 'issue', description: 'https://github.com/microsoft/playwright-mcp/issues/458' } }, async ({ startClient }, testInfo) => {
+    let hasFirefox = false;
+    try {
+      const { firefox } = require('playwright-core');
+      hasFirefox = !!firefox.executablePath();
+    } catch {}
+    test.skip(!hasFirefox, 'Firefox is not installed');
+
     const config: Config = {
       browser: {
         browserName: 'firefox',
