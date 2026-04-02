@@ -87,6 +87,8 @@ test('delete-data', async ({ cli, server, mcpBrowserNormalized }) => {
   const dataDir = path.resolve(await daemonFolder(), 'ud-default-' + mcpBrowserNormalized);
   expect(fs.existsSync(dataDir)).toBe(true);
 
+  await cli('close');
+
   const { output } = await cli('delete-data');
   expect(output).toContain(`Deleted user data for browser 'default'.`);
 
@@ -98,6 +100,8 @@ test('delete-data named session', async ({ cli, server, mcpBrowserNormalized }) 
 
   const dataDir = path.resolve(await daemonFolder(), 'ud-mysession-' + mcpBrowserNormalized);
   expect(fs.existsSync(dataDir)).toBe(true);
+
+  await cli('-s', 'mysession', 'close');
 
   const { output } = await cli('-s', 'mysession', 'delete-data');
   expect(output).toContain(`Deleted user data for browser 'mysession'.`);
@@ -181,10 +185,6 @@ test('list --all lists sessions from all workspaces', async ({ cli, server }, te
   await fs.promises.mkdir(workspace1, { recursive: true });
   await fs.promises.mkdir(workspace2, { recursive: true });
   await fs.promises.mkdir(workspace3, { recursive: true });
-
-  await cli('install', { cwd: workspace1 });
-  await cli('install', { cwd: workspace2 });
-  await cli('install', { cwd: workspace3 });
 
   await cli('-s', 'session1', 'open', server.HELLO_WORLD, { cwd: workspace1 });
   await cli('-s', 'session2', 'open', server.HELLO_WORLD, { cwd: workspace2 });
@@ -300,7 +300,7 @@ workspace1:
 - browser "foobar":
   - browser: ${/* FIX browser._options */ mcpBrowser.replace('chrome', 'chromium')}
   - version: ${version}
-  - run \`playwright-cli open --attach "foobar"\` to attach`);
+  - run \\`playwright-cli open --attach "foobar"\\` to attach`);
   });
 
   test('attach to browser server', async ({ cli, mcpBrowser }) => {
@@ -326,7 +326,7 @@ workspace1:
 - browser "foobar":
   - browser: ${/* FIX browser._options */ mcpBrowser.replace('chrome', 'chromium')}
   - version: ${version}
-  - run \`playwright-cli open --attach "foobar"\` to attach`);
+  - run \\`playwright-cli open --attach "foobar"\\` to attach`);
   });
 
   test('fail to attach to browser server without contexts', async ({ cli, mcpBrowser }) => {
@@ -371,7 +371,7 @@ workspace1:
 - browser \"foobar\":
   - browser: ${/* FIX browser._options */ mcpBrowser.replace('chrome', 'chromium')}
   - version: ${version}
-  - run \`playwright-cli open --attach \"foobar\"\` to attach`);
+  - run \\`playwright-cli open --attach \"foobar\"\\` to attach`);
   });
 });
 
