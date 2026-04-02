@@ -1,0 +1,55 @@
+name: Main
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: main-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  FORCE_COLOR: 1
+  ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+  DEBUG: pw:mcp:error
+
+jobs:
+  lint:
+    name: Lint & Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run build
+      - name: Verify clean tree
+        run: |
+          if [[ -n $(git status -s) ]]; then
+            echo "ERROR: tree is dirty after build"
+            git diff
+            exit 1
+          fi
+
+  mcp-tests:
+    name: MCP Tests (${{ matrix.os }})
+    needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run build
+      - name: Install browsers
+        run: npx playwright install --with-deps chromium
+      - name: Run MCP tests
+        run: npm run ctest-mcp
+        shell: bash
