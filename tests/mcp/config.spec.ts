@@ -90,7 +90,8 @@ test.describe(() => {
     let hasFirefox = false;
     try {
       const { firefox } = require('playwright-core');
-      hasFirefox = !!firefox.executablePath();
+      const execPath = firefox.executablePath();
+      hasFirefox = !!execPath && fs.existsSync(execPath);
     } catch {}
     test.skip(!hasFirefox, 'Firefox is not installed');
 

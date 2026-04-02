@@ -14,7 +14,15 @@
  * limitations under the License.
  */
 
+import fs from 'fs';
+import path from 'path';
+
 import { test, expect } from './cli-fixtures';
+
+const dashboardDir = path.join(require.resolve('playwright-core/package.json'), '..', 'lib', 'vite', 'dashboard');
+const hasDashboardBuild = fs.existsSync(path.join(dashboardDir, 'index.html'));
+
+test.skip(!hasDashboardBuild, 'Dashboard build not available (vite build disabled in this fork)');
 
 test.beforeEach(({}, testInfo) => {
   process.env.PLAYWRIGHT_SERVER_REGISTRY = testInfo.outputPath('registry');
