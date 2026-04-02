@@ -1,11 +1,11 @@
 {
-  "name": "playwright-mcp",
-  "private": true,
+  "name": "playwright-mcp-parallel",
+  "private": false,
   "version": "1.59.0-next",
   "description": "Playwright MCP Server with parallel browser instance support",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nicekid1/playwright-mcp-paral.git"
+    "url": "git+https://github.com/martin-lzh/playwright-mcp-parallel.git"
   },
   "engines": {
     "node": ">=18"

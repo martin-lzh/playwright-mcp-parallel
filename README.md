@@ -31,8 +31,8 @@ When `instanceId` is omitted, tools operate on the **default instance** (fully b
 ### Build from Source
 
 ```bash
-git clone https://github.com/martin-lzh/playwright-mcp-parallel.git
-cd playwright-mcp-parallel
+git clone https://github.com/martin-lzh/playwright-mcp-parallellel.git
+cd playwright-mcp-parallellel
 npm install
 npm run build
 ```
@@ -75,7 +75,7 @@ Add to your VS Code `settings.json`:
       "playwright": {
         "command": "node",
         "args": [
-          "C:/absolute/path/to/playwright-mcp-paral/packages/playwright-core/lib/tools/mcp/cli-stub.js",
+          "C:/absolute/path/to/playwright-mcp-parallel/packages/playwright-core/lib/tools/mcp/cli-stub.js",
           "--isolated"
         ]
       }
