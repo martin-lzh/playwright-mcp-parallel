@@ -209,3 +209,41 @@ test('instances should be fully isolated', async ({ startClient, server }) => {
   expect(textOf(snapshotDefault)).not.toContain('Content A');
   expect(textOf(snapshotDefault)).not.toContain('Content B');
 });
+
+test('browser_close on instance should not kill other instances', async ({ startClient, server }) => {
+  const { client } = await startClient({ args: ['--isolated'] });
+
+  // Create two instances.
+  await client.callTool({ name: 'browser_instance_create', arguments: { instanceId: 'doomed' } });
+  await client.callTool({ name: 'browser_instance_create', arguments: { instanceId: 'survivor' } });
+
+  // Navigate the survivor to a page.
+  server.setContent('/alive', '<title>Still Alive</title><body>I survived</body>', 'text/html');
+  await client.callTool({
+    name: 'browser_navigate',
+    arguments: { url: server.PREFIX + '/alive', instanceId: 'survivor' },
+  });
+
+  // Close the doomed instance via browser_close (not browser_instance_close).
+  await client.callTool({
+    name: 'browser_close',
+    arguments: { instanceId: 'doomed' },
+  });
+
+  // The doomed instance should be gone.
+  const listResult = await client.callTool({
+    name: 'browser_instance_list',
+    arguments: {},
+  });
+  expect(textOf(listResult)).not.toContain('doomed');
+
+  // The survivor and default should still work.
+  expect(textOf(listResult)).toContain('survivor');
+  expect(textOf(listResult)).toContain('default');
+
+  const snapshot = await client.callTool({
+    name: 'browser_snapshot',
+    arguments: { instanceId: 'survivor' },
+  });
+  expect(textOf(snapshot)).toContain('I survived');
+});

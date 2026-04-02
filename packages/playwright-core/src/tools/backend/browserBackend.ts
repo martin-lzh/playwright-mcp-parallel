@@ -188,7 +188,7 @@ export class BrowserBackend implements ServerBackend {
 
     const response = new Response(context, name, parsedArguments, cwd);
     context.setRunningTool(name);
-    let responseObject: mcpServer.CallToolResult;
+    let responseObject: mcpServer.CallToolResult & { isClose?: boolean };
     try {
       await tool.handle(context, parsedArguments, response);
       responseObject = await response.serialize();
@@ -201,6 +201,19 @@ export class BrowserBackend implements ServerBackend {
     } finally {
       context.setRunningTool(undefined);
     }
+
+    // When a non-default instance signals close (e.g. browser_close or all tabs
+    // closed), tear down only that instance instead of the entire backend.
+    if (responseObject.isClose && instanceId && instanceId !== 'default') {
+      const entry = this._instances.get(instanceId);
+      if (entry) {
+        await entry.context.dispose();
+        await entry.browserContext.close();
+        this._instances.delete(instanceId);
+      }
+      delete responseObject.isClose;
+    }
+
     return responseObject;
   }
 }
