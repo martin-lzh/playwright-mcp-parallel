@@ -56,6 +56,7 @@ const ignores = [
   "packages/html-reporter/vite.config.ts",
   "packages/html-reporter/src/**",
   "packages/recorder/src/**",
+  "packages/recorder/vite.config.ts",
   "packages/dashboard/src/**",
   "packages/dashboard/vite.config.ts",
   "packages/trace/src/**",
