@@ -207,9 +207,13 @@ export class BrowserBackend implements ServerBackend {
     if (responseObject.isClose && instanceId && instanceId !== 'default') {
       const entry = this._instances.get(instanceId);
       if (entry) {
-        await entry.context.dispose();
-        await entry.browserContext.close();
         this._instances.delete(instanceId);
+        try {
+          await entry.context.dispose();
+          await entry.browserContext.close();
+        } catch (e) {
+          debug('pw:tools:error')(e);
+        }
       }
       delete responseObject.isClose;
     }
