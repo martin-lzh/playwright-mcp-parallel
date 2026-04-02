@@ -505,6 +505,18 @@ onChanges.push({
   script: 'utils/generate_channels.js',
 });
 
+// Generate CLI help.json (must run after esbuild compiles helpGenerator.ts).
+onChanges.push({
+  inputs: [
+    'packages/playwright-core/src/tools/cli-daemon/helpGenerator.ts',
+    'packages/playwright-core/src/tools/cli-daemon/commands.ts',
+  ],
+  mustExist: [
+    'packages/playwright-core/lib/tools/cli-daemon/helpGenerator.js',
+  ],
+  script: 'utils/generate_cli_help.js',
+});
+
 if (watchMode && !disableInstall) {
   // Keep browser installs up to date.
   onChanges.push({
