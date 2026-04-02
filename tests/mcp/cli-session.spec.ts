@@ -300,7 +300,7 @@ workspace1:
 - browser "foobar":
   - browser: ${/* FIX browser._options */ mcpBrowser.replace('chrome', 'chromium')}
   - version: ${version}
-  - run \\`playwright-cli open --attach "foobar"\\` to attach`);
+  - run \`playwright-cli open --attach "foobar"\` to attach`);
   });
 
   test('attach to browser server', async ({ cli, mcpBrowser }) => {
@@ -326,7 +326,7 @@ workspace1:
 - browser "foobar":
   - browser: ${/* FIX browser._options */ mcpBrowser.replace('chrome', 'chromium')}
   - version: ${version}
-  - run \\`playwright-cli open --attach "foobar"\\` to attach`);
+  - run \`playwright-cli open --attach "foobar"\` to attach`);
   });
 
   test('fail to attach to browser server without contexts', async ({ cli, mcpBrowser }) => {
@@ -371,7 +371,7 @@ workspace1:
 - browser \"foobar\":
   - browser: ${/* FIX browser._options */ mcpBrowser.replace('chrome', 'chromium')}
   - version: ${version}
-  - run \\`playwright-cli open --attach \"foobar\"\\` to attach`);
+  - run \`playwright-cli open --attach \"foobar\"\` to attach`);
   });
 });
 
