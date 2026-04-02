@@ -32,7 +32,7 @@ When `instanceId` is omitted, tools operate on the **default instance** (fully b
 
 ```bash
 git clone https://github.com/martin-lzh/playwright-mcp-parallel.git
-cd playwright-mcp-paral
+cd playwright-mcp-parallel
 npm install
 npm run build
 ```
