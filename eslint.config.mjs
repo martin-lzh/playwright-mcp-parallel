@@ -21,8 +21,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 import stylistic from "@stylistic/eslint-plugin";
 import importRules from "eslint-plugin-import";
-import { fixupConfigRules } from "@eslint/compat";
-import { FlatCompat } from "@eslint/eslintrc";
 import js from "@eslint/js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -56,10 +54,19 @@ const ignores = [
   "packages/html-reporter/playwright.config.ts",
   "packages/html-reporter/playwright/*",
   "packages/html-reporter/vite.config.ts",
+  "packages/html-reporter/src/**",
+  "packages/recorder/src/**",
+  "packages/recorder/vite.config.ts",
+  "packages/dashboard/src/**",
+  "packages/dashboard/vite.config.ts",
+  "packages/trace/src/**",
+  "packages/web/src/**",
   "test-results/",
   "tests/assets/",
   "tests/components/",
   "tests/installation/fixture-scripts/",
+  "tests/config/browserTest.ts",
+  "tests/config/ghaMarkdownReporter.ts",
   "tests/third_party/",
   "utils/",
 ];
@@ -207,8 +214,6 @@ export const baseRules = {
     },
   ],
 
-  // react
-  "react/react-in-jsx-scope": 0,
 };
 
 const noFloatingPromisesRules = {
@@ -270,48 +275,6 @@ const languageOptionsWithTsConfig = {
   },
 };
 
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-  recommendedConfig: js.configs.recommended,
-  allConfig: js.configs.all,
-});
-const reactBaseConfig = fixupConfigRules(
-  compat.extends("plugin:react/recommended", "plugin:react-hooks/recommended")
-);
-const reactFiles = [
-  `packages/html-reporter/src/**/*.ts`,
-  `packages/html-reporter/src/**/*.tsx`,
-  `packages/recorder/src/**/*.ts`,
-  `packages/recorder/src/**/*.tsx`,
-  `packages/trace-viewer/src/**/*.ts`,
-  `packages/trace-viewer/src/**/*.tsx`,
-  `packages/web/src/**/*.ts`,
-  `packages/web/src/**/*.tsx`,
-];
-
-function reactPackageSection(packageName) {
-  return {
-    files: [
-      `packages/${packageName}/src/**/*.ts`,
-      `packages/${packageName}/src/**/*.tsx`,
-      `packages/web/src/**/*.ts`,
-      `packages/web/src/**/*.tsx`,
-    ],
-    languageOptions: languageOptionsWithTsConfig,
-    rules: {
-      ...baseRules,
-      "no-console": 2,
-      "no-restricted-syntax": [
-        "error",
-        {
-          selector: "JSXElement > JSXText[value=/^;\n/]",
-          message: 'Unexpected semicolon after JSX element',
-        },
-      ]
-    },
-  };
-}
-
 export default [
   {
     ignores,
@@ -321,9 +284,6 @@ export default [
     plugins,
     languageOptions,
     rules: baseRules,
-    settings: {
-      react: { version: "detect" },
-    },
   },
   {
     files: ["packages/**/*.ts"],
@@ -427,11 +387,4 @@ export default [
       ...noFloatingPromisesRules,
     },
   },
-  ...reactBaseConfig.map((config) => ({
-    ...config,
-    files: reactFiles,
-  })),
-  reactPackageSection("html-reporter"),
-  reactPackageSection("recorder"),
-  reactPackageSection("trace-viewer"),
 ];

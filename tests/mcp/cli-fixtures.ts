@@ -49,6 +49,12 @@ export const test = baseTest.extend<{
       await waitForPort(debugPort);
       const browser = await chromium.connectOverCDP(`http://127.0.0.1:${debugPort}`);
       const dashboard = browser.contexts()[0].pages()[0];
+      // Wait for the dashboard page to navigate from data:text/html, to the actual URL
+      // and for the React app to mount. The dashboard app opens Chrome with --app=data:text/html,
+      // and then navigates to the HTTP-served dashboard; when connecting via CDP we may
+      // arrive before that navigation finishes.
+      await dashboard.waitForURL(/^http:/, { timeout: 15000 });
+      await dashboard.waitForLoadState('load');
       dashboards.push({ dashboard, browser });
       return dashboard;
     });
