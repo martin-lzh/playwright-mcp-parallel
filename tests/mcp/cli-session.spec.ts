@@ -186,6 +186,10 @@ test('list --all lists sessions from all workspaces', async ({ cli, server }, te
   await fs.promises.mkdir(workspace2, { recursive: true });
   await fs.promises.mkdir(workspace3, { recursive: true });
 
+  await cli('install', { cwd: workspace1 });
+  await cli('install', { cwd: workspace2 });
+  await cli('install', { cwd: workspace3 });
+
   await cli('-s', 'session1', 'open', server.HELLO_WORLD, { cwd: workspace1 });
   await cli('-s', 'session2', 'open', server.HELLO_WORLD, { cwd: workspace2 });
   const session3 = await cli('-s', 'session3', 'open', server.HELLO_WORLD, { cwd: workspace3 });
@@ -283,13 +287,11 @@ test('older client with newer daemon - list shows incompatible warning', async (
   expect(output).toContain('- default:');
   expect(output).toContain('[incompatible please re-open]');
 });
-
 test.describe('browser server', () => {
   test.beforeEach(async ({ mcpBrowser }, testInfo) => {
     test.skip(!['chrome', 'chromium', 'webkit', 'firefox'].includes(mcpBrowser));
     process.env.PLAYWRIGHT_SERVER_REGISTRY = testInfo.outputPath('registry');
   });
-
   test('list browser servers', async ({ cli, mcpBrowser }) => {
     const browserName = mcpBrowser.replace('chrome', 'chromium');
     await using browser = await playwright[browserName].launch({ headless: true });
@@ -336,7 +338,6 @@ workspace1:
     const { error } = await cli('open', '--attach=foobar');
     expect(error).toContain('Error: unable to connect to a browser that does not have any contexts');
   });
-
   test('attach via PLAYWRIGHT_CLI_SESSION env', async ({ cli, mcpBrowser }) => {
     const browserName = mcpBrowser.replace('chrome', 'chromium');
     await using browser = await playwright[browserName].launch({ headless: true });
@@ -356,7 +357,6 @@ workspace1:
   - user-data-dir: <in-memory>
   - headed: true`);
   });
-
   test('detach from browser server', async ({ cli, mcpBrowser }) => {
     const browserName = mcpBrowser.replace('chrome', 'chromium');
     await using browser = await playwright[browserName].launch({ headless: true });
@@ -368,7 +368,7 @@ workspace1:
     const { output: listOutput } = await cli('list', '--all');
     expect(listOutput).toBe(`### Browser servers available for attach
 workspace1:
-- browser \"foobar\":
+- browser "foobar":
   - browser: ${/* FIX browser._options */ mcpBrowser.replace('chrome', 'chromium')}
   - version: ${version}
   - run \`playwright-cli open --attach \"foobar\"\` to attach`);
